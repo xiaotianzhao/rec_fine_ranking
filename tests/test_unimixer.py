@@ -20,4 +20,5 @@ def test_backward_flow():
 
 def test_backbone_param_count():
     m = UniMixer()
-    assert m.count_params()["backbone"] > 1000
+    bp = m.count_params()["backbone"]
+    assert 4_500_000 <= bp <= 5_500_000, f"backbone={bp:,} outside 5M±10%"

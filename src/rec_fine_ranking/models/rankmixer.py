@@ -60,7 +60,7 @@ class RankMixer(BaseRanker):
         self,
         encoder: FeatureEncoder | None = None,
         n_tokens: int = 16,
-        d_token: int = 64,
+        d_token: int = 112,
         n_layers: int = 3,
         ffn_mult: int = 4,
     ):

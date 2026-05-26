@@ -46,9 +46,9 @@ class OneTrans(BaseRanker):
     def __init__(
         self,
         encoder: FeatureEncoder | None = None,
-        n_layers: int = 2,
-        d_model: int = 128,
-        n_heads: int = 4,
+        n_layers: int = 4,
+        d_model: int = 320,
+        n_heads: int = 8,
         ffn_mult: int = 4,
     ):
         super().__init__(encoder)

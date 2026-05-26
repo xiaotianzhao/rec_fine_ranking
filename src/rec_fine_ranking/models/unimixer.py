@@ -89,9 +89,9 @@ class UniMixer(BaseRanker):
     def __init__(
         self,
         encoder: FeatureEncoder | None = None,
-        n_layers: int = 3,
-        n_blocks: int = 8,
-        block_dim: int = 24,
+        n_layers: int = 4,
+        n_blocks: int = 16,
+        block_dim: int = 120,
         hidden_mult: int = 2,
     ):
         super().__init__(encoder)

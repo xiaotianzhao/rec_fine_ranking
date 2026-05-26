@@ -76,10 +76,10 @@ class HyFormer(BaseRanker):
     def __init__(
         self,
         encoder: FeatureEncoder | None = None,
-        n_layers: int = 2,
-        d_seq: int = 64,
-        d_feat: int = 128,
-        n_heads: int = 4,
+        n_layers: int = 3,
+        d_seq: int = 256,
+        d_feat: int = 256,
+        n_heads: int = 8,
         n_query: int = 4,
         ffn_mult: int = 4,
     ):
