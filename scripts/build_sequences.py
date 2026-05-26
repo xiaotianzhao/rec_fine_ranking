@@ -22,14 +22,18 @@ def main():
         prior_frames = []
         for i, f in enumerate(shards):
             today = pd.read_parquet(f)
-            prior = pd.concat(prior_frames, copy=False) if prior_frames else today.iloc[:0]
-            # also include earlier rows of *today* before each row's timestamp
-            prior_for_today = pd.concat([prior, today], copy=False)
-            hist = build_history_for_day(today, prior_for_today)
             out = seq_dir / f"{f.stem}.pkl"
-            with open(out, "wb") as fh:
-                pickle.dump(hist, fh, protocol=4)
-            print(f"[{split}] {f.name}: {len(hist):>10,} keys → {out.name}")
+            if out.exists():
+                # Reuse an already-built pickle; still accumulate the prior window below.
+                print(f"[{split}] {f.name}: skip (exists)")
+            else:
+                prior = pd.concat(prior_frames) if prior_frames else today.iloc[:0]
+                # also include earlier rows of *today* before each row's timestamp
+                prior_for_today = pd.concat([prior, today])
+                hist = build_history_for_day(today, prior_for_today)
+                with open(out, "wb") as fh:
+                    pickle.dump(hist, fh, protocol=4)
+                print(f"[{split}] {f.name}: {len(hist):>10,} keys → {out.name}")
             prior_frames.append(today[["user_id","request_timestamp","effective_view", *SEQ_FIELDS]])
             # cap memory: keep last 5 days of prior
             if len(prior_frames) > 5:
