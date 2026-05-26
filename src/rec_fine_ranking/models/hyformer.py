@@ -16,13 +16,16 @@ Architecture (per implementation plan):
     feat_t = Linear(non_seq_dim, d_feat)(nonseq)[:, None]
                  .expand(-1, n_query, -1)                           # (B, n_query, d_feat)
     q2s = Linear(d_feat, d_seq); s2q = Linear(d_seq, d_feat)
-    for _ in range(n_layers):
+    for i in range(n_layers):
         # Query Decoding: feat queries cross-attend to seq (in d_seq space)
         feat_t = feat_t + q_dec_out(cross_attn(q=q2s(feat_t), k=seq_t, v=seq_t))
         feat_t = feat_t + feat_ffn(feat_t)
-        # Query Boosting: seq cross-attends back to feat (in d_feat space)
-        seq_t  = seq_t  + s_boost_out(cross_attn(q=s2q(seq_t), k=feat_t, v=feat_t))
-        seq_t  = seq_t  + seq_ffn(seq_t)
+        # Query Boosting: seq cross-attends back to feat (in d_feat space).
+        # Only on non-final layers, since the boosted seq_t feeds the *next*
+        # decode; the head reads feat_t, so a final-layer boost would be dead.
+        if i < n_layers - 1:
+            seq_t = seq_t + s_boost_out(cross_attn(q=s2q(seq_t), k=feat_t, v=feat_t))
+            seq_t = seq_t + seq_ffn(seq_t)
     pooled = feat_t.mean(1)                                         # (B, d_feat)
     logit  = Linear(d_feat, 1)(pooled).squeeze(-1)                  # (B,)
 
@@ -91,8 +94,10 @@ class HyFormer(BaseRanker):
             [_CrossAttnBlock(d_feat, d_seq, n_heads, ffn_mult) for _ in range(n_layers)]
         )
         # Query Boosting: seq stream (d_seq) attends back into feat queries (d_feat).
+        # One fewer block than decode: each boost refines seq_t for the *next* layer's
+        # decode, so a final-layer boost would never be read by the feat-pooled head.
         self.query_boost = nn.ModuleList(
-            [_CrossAttnBlock(d_seq, d_feat, n_heads, ffn_mult) for _ in range(n_layers)]
+            [_CrossAttnBlock(d_seq, d_feat, n_heads, ffn_mult) for _ in range(max(n_layers - 1, 0))]
         )
         self.head = nn.Linear(d_feat, 1)
 
@@ -102,9 +107,10 @@ class HyFormer(BaseRanker):
             -1, self.n_query, -1
         )                                                            # (B, n_query, d_feat)
 
-        for decode, boost in zip(self.query_decode, self.query_boost):
+        for i, decode in enumerate(self.query_decode):
             feat_t = decode(feat_t, seq_t)   # feat queries attend to seq
-            seq_t = boost(seq_t, feat_t)     # seq attends back to feat (bidirectional)
+            if i < len(self.query_boost):    # boost refines seq_t for the next decode
+                seq_t = self.query_boost[i](seq_t, feat_t)
 
         pooled = feat_t.mean(1)                                      # (B, d_feat)
         logit = self.head(pooled)                                    # (B, 1)
