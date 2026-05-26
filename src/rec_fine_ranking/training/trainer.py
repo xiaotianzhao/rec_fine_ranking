@@ -32,7 +32,7 @@ class TrainerConfig:
     eval_every_steps: int = 5000
     ckpt_every_steps: int = 10_000
     log_every_steps: int = 100
-    device_peak_tflops: float = 2.0   # M5 bf16 nominal; used for MFU display only
+    device_peak_tflops: float = 1.0   # M-series fp32 nominal (this run is fp32); MFU display only
     resume: Optional[str] = None
 
 
@@ -146,6 +146,7 @@ class Trainer:
                     self._step += 1
                     if self._step % self.cfg.log_every_steps == 0:
                         self._log_step(loss, gnorm, step_ms)
+                        bar.set_postfix(loss=f"{loss:.4f}", gnorm=f"{gnorm:.2f}")
                     if self._step % self.cfg.eval_every_steps == 0:
                         self._eval()
                     if self._step % self.cfg.ckpt_every_steps == 0:
