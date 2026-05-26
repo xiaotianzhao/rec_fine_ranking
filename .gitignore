@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 experiments/runs/
 experiments/data/
+experiments/vp_l1/
+experiments/vp_l1_pipeline/
+events.out.tfevents.*
 *.feather
 *.parquet
 *.pt
