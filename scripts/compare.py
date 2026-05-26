@@ -33,6 +33,10 @@ def run(runs_dir: Path, out_csv: Path, out_md: Path, out_png: Path) -> None:
             "GAUC": float(last["gauc"]),
             "LogLoss": float(last["logloss"]),
         })
+    if not rows:
+        raise ValueError(
+            f"No valid runs found under {runs_dir} (each run needs metrics.csv + meta.json)."
+        )
     rows.sort(key=lambda r: r["GAUC"], reverse=True)
     with open(out_csv, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))

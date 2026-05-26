@@ -25,17 +25,17 @@ except Exception:  # pragma: no cover - exercised only when fvcore is absent
     _HAS_FVCORE = False
 
 
-def _manual_linear_mflops(model: torch.nn.Module, batch_size: int) -> float:
-    """Rough fallback: 2 * in * out FLOPs per nn.Linear, summed, per sample.
+def _manual_linear_mflops(model: torch.nn.Module) -> float:
+    """Rough fallback: 2 * in * out FLOPs per nn.Linear, summed.
 
-    Counts the whole-batch Linear cost then divides by the batch size so the
-    returned value is per-sample and matches the fvcore path's normalisation.
+    The per-Linear ``2 * in * out`` count is already a per-sample figure, so the
+    sum is per-sample and matches the fvcore path's normalisation directly.
     """
     flops = 0
     for m in model.modules():
         if isinstance(m, torch.nn.Linear):
             flops += 2 * m.in_features * m.out_features
-    return flops * max(batch_size, 1) / 1e6 / max(batch_size, 1)
+    return flops / 1e6
 
 
 def count_mflops(model: torch.nn.Module, batch: Dict[str, torch.Tensor]) -> float:
@@ -57,4 +57,4 @@ def count_mflops(model: torch.nn.Module, batch: Dict[str, torch.Tensor]) -> floa
             # fvcore tracer failed on this model -> manual fallback.
             pass
 
-    return _manual_linear_mflops(model, batch_size)
+    return _manual_linear_mflops(model)
