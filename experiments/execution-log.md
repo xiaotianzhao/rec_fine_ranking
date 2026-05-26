@@ -81,3 +81,17 @@ Subtasks 1–10 completed in prior sessions (see git history). Below: subtasks e
 **Recommendation:** proceed. Pipeline is the production training script for the benchmark (Subtask 17). Capacity-budget alignment for modern models still pending in Subtask 17 Step 3.
 
 **All 16 dev subtasks complete. 40 unit + 8 integration tests pass. Integration VP passed.**
+
+### Subtask 17 Step 3 — Capacity alignment (post-VP, pre-benchmark)
+Tuned the 4 modern models' config defaults to the design's **5M ± 10% backbone budget** (user directive: "用5m"):
+
+| model | new config | backbone | mflops/sample | params@5M | flops@50 |
+|---|---|---|---|---|---|
+| onetrans | n_layers=4, d_model=320, n_heads=8 | 4,986,561 | 252.2 | ✓ | ✗ |
+| rankmixer | n_tokens=16, d_token=112, n_layers=3 | 5,149,089 | 5.1 | ✓ | ✗ |
+| unimixer | n_layers=4, n_blocks=16, block_dim=120 | 4,959,425 | 5.1 | ✓ | ✗ |
+| hyformer | n_layers=3, d_seq=256, d_feat=256, n_heads=8 | 4,650,497 | 109.8 | ✓ | ✗ |
+
+**Deliberate deviation from review_criteria L181 (which asked for both 5M params AND 50 MFLOPs):** the four architectures' FLOPs-per-param ratios differ by ~50× (OneTrans causal attention ≈252 MF at 5M; RankMixer/UniMixer ≈5 MF at 5M), so matching both simultaneously is architecturally infeasible. **Decision:** control on backbone params (5M±10%, all ✓) and treat MFLOPs/sample as a *measured dependent variable* (design §1 already lists "FLOPs per sample" as a dependent variable). `calibrate_capacity.py` now reports params@5M and flops@50 separately. Modern-model unit tests tightened to assert 4.5M–5.5M. 48 tests pass. Commit `e8c6ed9`, pushed.
+
+Classical baselines (W&D/DCN/DeepFM) intentionally kept small (84K–113K) per design §3.3.
