@@ -1,7 +1,9 @@
 """Build leakage-safe per-user effective-view history for each sample.
 
 Output schema: dict[(user_id:int, request_id:int)] -> dict[field_name -> np.ndarray of length SEQ_LEN].
-History items are written starting at index 0 in chronological order; padding (0) fills the tail.
+History is right-aligned: padding (0) fills the head, the most recent event sits at index -1.
+This matches conventional sequence-modelling layouts (DIN, BERT4Rec) and makes causal-attention
+masking natural for OneTrans-style models.
 """
 from __future__ import annotations
 from typing import Dict, Tuple
@@ -35,7 +37,7 @@ def build_history_for_day(today_df: pd.DataFrame, prior_df: pd.DataFrame) -> Dic
             buf = np.zeros(SEQ_LEN, dtype=np.int32)
             if window is not None and len(window) > 0:
                 vals = window[f].to_numpy().astype(np.int32)
-                buf[:len(vals)] = vals
+                buf[-len(vals):] = vals
             rec[f] = buf
         out[(int(row.user_id), int(row.request_id))] = rec
     return out

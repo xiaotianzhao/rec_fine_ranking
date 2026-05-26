@@ -19,9 +19,14 @@ def test_history_no_leakage():
         "request_id":[999,888],
     })
     hist = build_history_for_day(today, prior)
-    assert hist[(1,999)]["video_id"].tolist()[:2] == [101,102]   # t<25 only
-    assert 103 not in hist[(1,999)]["video_id"].tolist()
-    assert hist[(2,888)]["video_id"].tolist()[:1] == [201]
+    # Right-aligned: padding(0) at head, most-recent event at index -1.
+    # For user 1 @ t=25: prior events at t=10 (vid=101) then t=20 (vid=102) only (t<25).
+    assert hist[(1,999)]["video_id"].tolist()[-2:] == [101, 102]
+    assert hist[(1,999)]["video_id"].tolist()[:-2] == [0] * (SEQ_LEN - 2)
+    assert 103 not in hist[(1,999)]["video_id"].tolist()             # leakage check
+    # For user 2 @ t=16: only one prior event (t=15, vid=201).
+    assert hist[(2,888)]["video_id"].tolist()[-1] == 201
+    assert hist[(2,888)]["video_id"].tolist()[:-1] == [0] * (SEQ_LEN - 1)
     # all arrays padded to SEQ_LEN
     for v in hist.values():
         for f, arr in v.items():
