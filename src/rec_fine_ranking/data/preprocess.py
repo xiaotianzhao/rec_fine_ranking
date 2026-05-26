@@ -23,6 +23,9 @@ def _bucketize_duration(seconds: pd.Series, n_buckets: int = 64) -> np.ndarray:
     return idx.clip(0, n_buckets - 1).astype(np.int8)
 
 def transform_frame(df: pd.DataFrame) -> pd.DataFrame:
+    # Raw RecFlow feather ships some columns with stray whitespace (e.g.
+    # " category_level_two"); normalise names before any column access.
+    df = df.rename(columns=lambda c: c.strip())
     df = df[df["realshow"] == 1].copy()
     # video_id / author_id → hashed
     df["video_id"]  = hash_ids(df["video_id" ].to_numpy(np.int64), feature_by_name("video_id" ).vocab_size).astype(np.int32)

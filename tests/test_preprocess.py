@@ -42,3 +42,10 @@ def test_filter_realshow_only():
     # hour_of_day derived from timestamp
     assert "hour_of_day" in out.columns
     assert (out["hour_of_day"] >= 0).all() and (out["hour_of_day"] < 24).all()
+
+def test_strips_whitespace_in_column_names():
+    # Raw RecFlow feather ships " category_level_two" with a leading space.
+    df = _toy_frame().rename(columns={"category_level_two": " category_level_two"})
+    out = transform_frame(df)
+    assert "category_level_two" in out.columns
+    assert out["category_level_two"].dtype == np.int16
