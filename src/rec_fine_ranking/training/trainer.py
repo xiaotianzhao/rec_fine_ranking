@@ -83,6 +83,12 @@ class Trainer:
         batch = {k: v.to(self.device, non_blocking=True) for k, v in batch.items()}
         logits = self.model(batch)
         loss = self.loss_fn(logits, batch["label"])
+        if not torch.isfinite(loss):
+            # Fail loud: a NaN/Inf loss means the run is corrupt; aborting beats
+            # silently stepping the optimizer and wasting a long training run.
+            raise RuntimeError(
+                f"[trainer] non-finite loss ({loss.item()}) at step {self._step} — aborting."
+            )
         self.optim.zero_grad(set_to_none=True)
         loss.backward()
         gnorm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.cfg.grad_clip)
@@ -128,33 +134,36 @@ class Trainer:
 
     def fit(self) -> None:
         start = time.time()
-        for epoch in range(self.cfg.epochs):
-            it = iter(self.train_loader)
-            bar = tqdm(it, desc=f"train epoch={epoch}", total=len(self.train_loader)
-                        if hasattr(self.train_loader, "__len__") else None)
-            for batch in bar:
-                t0 = time.time()
-                loss, gnorm = self._train_step(batch)
-                step_ms = (time.time() - t0) * 1000
-                self._step += 1
-                if self._step % self.cfg.log_every_steps == 0:
-                    self._log_step(loss, gnorm, step_ms)
-                if self._step % self.cfg.eval_every_steps == 0:
-                    self._eval()
-                if self._step % self.cfg.ckpt_every_steps == 0:
-                    self._save_checkpoint("step")
+        try:
+            for epoch in range(self.cfg.epochs):
+                it = iter(self.train_loader)
+                bar = tqdm(it, desc=f"train epoch={epoch}", total=len(self.train_loader)
+                            if hasattr(self.train_loader, "__len__") else None)
+                for batch in bar:
+                    t0 = time.time()
+                    loss, gnorm = self._train_step(batch)
+                    step_ms = (time.time() - t0) * 1000
+                    self._step += 1
+                    if self._step % self.cfg.log_every_steps == 0:
+                        self._log_step(loss, gnorm, step_ms)
+                    if self._step % self.cfg.eval_every_steps == 0:
+                        self._eval()
+                    if self._step % self.cfg.ckpt_every_steps == 0:
+                        self._save_checkpoint("step")
+                    if self.cfg.max_steps and self._step >= self.cfg.max_steps:
+                        break
+                self._eval()
+                self._save_checkpoint("end")
                 if self.cfg.max_steps and self._step >= self.cfg.max_steps:
                     break
-            self._eval()
-            self._save_checkpoint("end")
-            if self.cfg.max_steps and self._step >= self.cfg.max_steps:
-                break
-        elapsed = time.time() - start
-        meta_path = self.out_dir / "meta.json"
-        meta = json.loads(meta_path.read_text())
-        meta["train_time_sec"] = elapsed
-        meta_path.write_text(json.dumps(meta, indent=2, default=str))
-        self._log_file.close(); self._metrics_csv.close(); self.writer.close()
+            elapsed = time.time() - start
+            meta_path = self.out_dir / "meta.json"
+            meta = json.loads(meta_path.read_text())
+            meta["train_time_sec"] = elapsed
+            meta_path.write_text(json.dumps(meta, indent=2, default=str))
+        finally:
+            # Close handles + TB writer even if training aborts (e.g. non-finite loss).
+            self._log_file.close(); self._metrics_csv.close(); self.writer.close()
 
     def fit_for_test(self) -> List[float]:
         """Tiny helper for integration test: run max_steps without eval/ckpt logic.
