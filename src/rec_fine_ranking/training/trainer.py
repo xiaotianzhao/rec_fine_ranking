@@ -137,8 +137,13 @@ class Trainer:
         try:
             for epoch in range(self.cfg.epochs):
                 it = iter(self.train_loader)
-                bar = tqdm(it, desc=f"train epoch={epoch}", total=len(self.train_loader)
-                            if hasattr(self.train_loader, "__len__") else None)
+                # A DataLoader over an IterableDataset has __len__ but raises TypeError
+                # when called, so probe with try/except rather than hasattr.
+                try:
+                    _total = len(self.train_loader)
+                except TypeError:
+                    _total = None
+                bar = tqdm(it, desc=f"train epoch={epoch}", total=_total)
                 for batch in bar:
                     t0 = time.time()
                     loss, gnorm = self._train_step(batch)

@@ -24,7 +24,12 @@ class Evaluator:
     @torch.no_grad()
     def _loop(self, model: torch.nn.Module, loader: Iterable, step: int | None = None) -> Dict[str, float]:
         model.eval()
-        n_batches = len(loader) if hasattr(loader, "__len__") else None
+        # A DataLoader over an IterableDataset has __len__ but raises TypeError when
+        # called; probe with try/except. Empty-loader is then caught post-loop below.
+        try:
+            n_batches = len(loader)
+        except TypeError:
+            n_batches = None
         if n_batches == 0:
             raise ValueError("Evaluator received an empty validation loader.")
         tag = f"@step={step}" if step is not None else ""
