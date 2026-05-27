@@ -116,4 +116,26 @@ Observed in the benchmark run: DeepFM **AUC 0.7017 / GAUC 0.6352** vs Wide&Deep 
 
 `fm_2nd` has the **largest magnitude but a weaker label correlation than the linear term** → it dominates the logit scale while injecting mostly-redundant/noisy signal, diluting the cleaner ranking from linear+deep (~−0.015 AUC). Consistent with literature where DeepFM≈W&D within ~0.01 AUC and the winner is implementation/dataset-dependent.
 
+### Benchmark Results (8/10 models; hyformer/onetrans still training — GPU-contended)
+
+Sorted by GAUC (1 epoch, batch 2048, RecFlow ~25.6M train / ~2M test):
+
+| model | AUC | GAUC | LogLoss | backbone |
+|---|---|---|---|---|
+| dcn (v1) | 0.7172 | 0.6483 | 0.5865 | 86K |
+| rankmixer | 0.7165 | 0.6483 | 0.5882 | 5.15M |
+| wide_deep | 0.7166 | 0.6472 | 0.5866 | 85K |
+| din | 0.7142 | 0.6445 | 0.5881 | 98K |
+| deepfm_field | 0.7119 | 0.6434 | 0.5901 | 88K |
+| unimixer | 0.7112 | 0.6420 | 0.5893 | 4.96M |
+| dcn_v2 | 0.7129 | 0.6416 | 0.5884 | 183K |
+| deepfm | 0.7017 | 0.6352 | 0.6014 | 113K |
+
+**Three targeted comparisons:**
+- **F1 — DeepFM FM implementation:** deepfm (simplified chunk-FM) 0.7017 → **deepfm_field (semantic field-FM) 0.7119** AUC (+0.0102), GAUC +0.0082. **Field-aware FM clearly helps** — confirms Finding F1: the simplified FM was the culprit, proper field FM lifts DeepFM back near the classical pack.
+- **DIN vs Wide&Deep (target-attention vs mean-pool):** din 0.7142 vs wide_deep 0.7166 (−0.0024 AUC, −0.0027 GAUC). **Target-attention does NOT beat mean-pool here** — slightly worse (within noise). The 50-step effective-view history carries limited target-discriminative signal on this task.
+- **DCN-v2 vs DCN-v1 (matrix vs vector cross):** dcn_v2 0.7129 vs dcn 0.7172 (−0.0043 AUC). **Matrix cross + DIN pooling did NOT beat the v1 vector cross** (confounded: dcn_v2 changes both cross type and seq pooling).
+
+**Headline:** all 8 cluster in AUC 0.702–0.717 / GAUC 0.635–0.648. Under shared embeddings + 1-epoch RecFlow CTR, architecture choice moves the needle <~0.005 (noise-level) — **the one exception is deepfm's broken simplified-FM**, which field-aware FM fixes. Modern 5M models (rankmixer/unimixer) ≈ tiny classical baselines; capacity/architecture is not the bottleneck here, shared embeddings dominate. (Note: din/dcn_v2 train_time_sec 9k–14k are inflated by the overnight data-loading bottleneck at num_workers=0, not a model property.)
+
 **Follow-up:** implemented a field-aware variant `deepfm_field` (each feature's embedding → its own K-dim FM field, canonical FM over semantic fields; same linear+deep towers as W&D to isolate the FM-implementation variable). To be trained **after** the main 7-model sweep completes, then compared against the simplified `deepfm`.
