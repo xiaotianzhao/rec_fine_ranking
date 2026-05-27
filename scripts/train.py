@@ -27,6 +27,8 @@ def main():
     p.add_argument("--eval-every-steps", type=int, default=5000)
     p.add_argument("--ckpt-every-steps", type=int, default=10_000)
     p.add_argument("--log-every-steps", type=int, default=100)
+    p.add_argument("--num-workers", type=int, default=4,
+                   help="DataLoader workers; >0 overlaps data loading with compute (shard-sharded).")
     p.add_argument("--resume", default=None)
     args = p.parse_args()
     _seed()
@@ -34,8 +36,16 @@ def main():
     root = Path(args.data_root)
     train_ds = RecFlowDataset(root/"train", root/"train_seq", shuffle_buffer=8192)
     val_ds   = RecFlowDataset(root/"test",  root/"test_seq",  shuffle_buffer=0, shuffle_shards=False)
-    train_loader = DataLoader(train_ds, batch_size=args.batch_size, collate_fn=collate_batch, num_workers=0)
-    val_loader   = DataLoader(val_ds,   batch_size=args.batch_size, collate_fn=collate_batch, num_workers=0)
+
+    def _loader(ds, workers):
+        kw = dict(batch_size=args.batch_size, collate_fn=collate_batch, num_workers=workers)
+        if workers > 0:
+            kw.update(persistent_workers=True, prefetch_factor=4)
+        return DataLoader(ds, **kw)
+
+    nw = max(args.num_workers, 0)
+    train_loader = _loader(train_ds, nw)
+    val_loader   = _loader(val_ds, min(nw, 2))  # only 2 test shards → ≤2 workers useful
     cfg = TrainerConfig(
         model_name=args.model, out_dir=Path(args.out_dir), device=args.device,
         batch_size=args.batch_size, max_steps=args.max_steps,
