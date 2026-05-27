@@ -7,6 +7,7 @@ from .base import BaseRanker, FeatureEncoder
 from .wide_deep import WideDeep
 from .dcn import DCN
 from .deepfm import DeepFM
+from .deepfm_field import DeepFMField
 from .onetrans import OneTrans
 from .rankmixer import RankMixer
 from .unimixer import UniMixer
@@ -16,6 +17,7 @@ MODEL_REGISTRY = {
     "wide_deep": WideDeep,
     "dcn": DCN,
     "deepfm": DeepFM,
+    "deepfm_field": DeepFMField,
     "onetrans": OneTrans,
     "rankmixer": RankMixer,
     "unimixer": UniMixer,
@@ -24,6 +26,6 @@ MODEL_REGISTRY = {
 
 __all__ = [
     "BaseRanker", "FeatureEncoder", "MODEL_REGISTRY",
-    "WideDeep", "DCN", "DeepFM", "OneTrans",
+    "WideDeep", "DCN", "DeepFM", "DeepFMField", "OneTrans",
     "RankMixer", "UniMixer", "HyFormer",
 ]

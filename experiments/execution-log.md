@@ -95,3 +95,25 @@ Tuned the 4 modern models' config defaults to the design's **5M ± 10% backbone 
 **Deliberate deviation from review_criteria L181 (which asked for both 5M params AND 50 MFLOPs):** the four architectures' FLOPs-per-param ratios differ by ~50× (OneTrans causal attention ≈252 MF at 5M; RankMixer/UniMixer ≈5 MF at 5M), so matching both simultaneously is architecturally infeasible. **Decision:** control on backbone params (5M±10%, all ✓) and treat MFLOPs/sample as a *measured dependent variable* (design §1 already lists "FLOPs per sample" as a dependent variable). `calibrate_capacity.py` now reports params@5M and flops@50 separately. Modern-model unit tests tightened to assert 4.5M–5.5M. 48 tests pass. Commit `e8c6ed9`, pushed.
 
 Classical baselines (W&D/DCN/DeepFM) intentionally kept small (84K–113K) per design §3.3.
+
+---
+
+## Findings
+
+### F1 — DeepFM (simplified FM) underperforms Wide&Deep
+Observed in the benchmark run: DeepFM **AUC 0.7017 / GAUC 0.6352** vs Wide&Deep **0.7166 / 0.6472** and DCN **0.7172 / 0.6483** — i.e. DeepFM is the *weakest* classical baseline, which is counterintuitive (DeepFM is usually framed as a W&D upgrade).
+
+**Root cause (analysed):** This `DeepFM` is architecturally `WideDeep`'s exact `linear + deep` towers **plus** one extra `fm_2nd` term — so DeepFM < W&D means `fm_2nd` is net-harmful. Two reasons:
+1. **Not field-aware.** The implemented FM (per the plan's simplification) projects the *concatenated* embedding vector through a single `fm_proj = Linear(d, F·K)` and reshapes into **arbitrary K-dim chunks** (F=21, K=8), then does the sum-square FM trick on those. These chunks are learned linear mixtures with **no per-feature semantics** — not the canonical FM that operates on each feature's own embedding (user_id vec × video_id vec …).
+2. **Redundant with the deep tower.** The MLP already models interactions on the shared embeddings, so the FM term adds little orthogonal signal.
+
+**Empirical evidence** (trained DeepFM, logit decomposed on 4096 real test rows):
+| term | abs_mean | corr with label |
+|---|---|---|
+| linear | 0.426 | **+0.322** |
+| fm_2nd | **0.700** (largest) | +0.235 |
+| deep | 0.372 | +0.173 |
+
+`fm_2nd` has the **largest magnitude but a weaker label correlation than the linear term** → it dominates the logit scale while injecting mostly-redundant/noisy signal, diluting the cleaner ranking from linear+deep (~−0.015 AUC). Consistent with literature where DeepFM≈W&D within ~0.01 AUC and the winner is implementation/dataset-dependent.
+
+**Follow-up:** implemented a field-aware variant `deepfm_field` (each feature's embedding → its own K-dim FM field, canonical FM over semantic fields; same linear+deep towers as W&D to isolate the FM-implementation variable). To be trained **after** the main 7-model sweep completes, then compared against the simplified `deepfm`.
