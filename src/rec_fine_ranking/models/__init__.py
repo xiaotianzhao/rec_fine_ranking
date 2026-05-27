@@ -6,7 +6,9 @@ instantiate any model via `MODEL_REGISTRY[name]()`.
 from .base import BaseRanker, FeatureEncoder
 from .wide_deep import WideDeep
 from .dcn import DCN
+from .dcn_v2 import DCNv2
 from .deepfm import DeepFM
+from .din import DIN
 from .deepfm_field import DeepFMField
 from .onetrans import OneTrans
 from .rankmixer import RankMixer
@@ -18,6 +20,8 @@ MODEL_REGISTRY = {
     "dcn": DCN,
     "deepfm": DeepFM,
     "deepfm_field": DeepFMField,
+    "din": DIN,
+    "dcn_v2": DCNv2,
     "onetrans": OneTrans,
     "rankmixer": RankMixer,
     "unimixer": UniMixer,
@@ -26,6 +30,6 @@ MODEL_REGISTRY = {
 
 __all__ = [
     "BaseRanker", "FeatureEncoder", "MODEL_REGISTRY",
-    "WideDeep", "DCN", "DeepFM", "DeepFMField", "OneTrans",
+    "WideDeep", "DCN", "DCNv2", "DeepFM", "DeepFMField", "DIN", "OneTrans",
     "RankMixer", "UniMixer", "HyFormer",
 ]
